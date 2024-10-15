@@ -1,6 +1,8 @@
 import { SMTPModel } from "../models/smtp.js";
 import crypto from "crypto";
-const secretKey = "thisisasecretkey";
+import dotenv from "dotenv";
+dotenv.config();
+const secretKey = process.env.SECRET_KEY;
 const key = crypto.scryptSync(secretKey, "salt", 32); // Derive a key from the passphrase
 
 // Function to encrypt text
