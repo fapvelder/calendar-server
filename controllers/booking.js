@@ -1,6 +1,7 @@
 import { BookingModel } from "../models/booking.js";
 import moment from "moment";
 import nodemailer from "nodemailer";
+import { createOTPAndSendSMS, generateOTP } from "./otp.js";
 
 export const getBookings = async (req, res) => {
   try {
@@ -13,12 +14,21 @@ export const getBookings = async (req, res) => {
 
 export const createBooking = async (req, res) => {
   try {
-    const { visitDate, timeSlot, email, representative } = req.body.data;
+    const { visitDate, timeSlot, location, phone } = req.body.data;
+    const today = new Date(); // Get the current date
+    today.setHours(0, 0, 0, 0); // Normalize to the start of the day
 
+    const bookingDate = new Date(visitDate);
+    if (bookingDate < today) {
+      return res
+        .status(400)
+        .send({ message: "Cannot create a booking in the past." });
+    }
     const existingBooking = await BookingModel.findOne({
       visitDate: visitDate,
       timeSlot: timeSlot,
-      status: { $ne: "cancelled" },
+      location: location,
+      status: { $nin: ["cancelled", "available"] },
     });
 
     if (existingBooking) {
@@ -26,93 +36,96 @@ export const createBooking = async (req, res) => {
         .status(400)
         .send({ message: "This time slot is already booked." });
     }
-
-    const newBooking = new BookingModel(req.body.data);
-    const savedBooking = await newBooking.save();
-
-    if (savedBooking) {
-      const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-          user: process.env.GMAIL_USER,
-          pass: process.env.GMAIL_PASS,
-        },
-      });
-
-      const mailOptions = {
-        from: process.env.GMAIL_USER,
-        to: email,
-        subject: "Chúng tôi đã nhận được yêu cầu thăm nhà máy của bạn",
-        html: `
-                  <p>Chào ${representative},</p>
-                  <p>Cảm ơn bạn đã liên hệ với chúng tôi. Chúng tôi xin xác nhận đã nhận được yêu cầu của bạn về việc thăm nhà máy. Chúng tôi rất vui mừng được chào đón bạn đến tham quan và tìm hiểu thêm về quy trình sản xuất của chúng tôi.</p>
-                  <p>Chúng tôi sẽ xem xét lịch trình và liên hệ với bạn trong thời gian sớm nhất để xác nhận thời gian và ngày cụ thể cho chuyến thăm.</p>
-                  <p>Nếu bạn có bất kỳ câu hỏi nào thêm, xin vui lòng cho chúng tôi biết.</p>
-                  <p>Trân trọng,</p>
-                  <p>Acecook Việt Nam</p>
-              `,
-      };
-
-      transporter.sendMail(mailOptions, (error, info) => {
-        if (error) {
-          console.log("Error occurred: " + error.message);
-          return res.status(400).send({ message: "Mail sent failed" });
-        } else {
-          console.log("Email sent: " + info.response);
-          return res.status(201).send(savedBooking);
-        }
-      });
+    const otp = generateOTP();
+    const newBooking = new BookingModel({
+      ...req.body.data,
+      otp,
+      lastOTPSent: Date.now(),
+    });
+    console.log(new Date());
+    const result = await createOTPAndSendSMS(newBooking._id, phone, otp);
+    if (result.error) {
+      return res.status(400).json({ success: false, message: result.error });
     }
+    const savedBooking = await newBooking.save();
+    // setTimeout(async () => {
+    //   const currentBooking = await BookingModel.findById(savedBooking._id);
+    //   if (currentBooking && currentBooking.status === "waiting") {
+    //     await BookingModel.findByIdAndUpdate(savedBooking._id, {
+    //       status: "available",
+    //     });
+    //   }
+    // }, 5 * 60 * 1000);
+    setTimeout(async () => {
+      try {
+        // Fetch the latest status of the booking
+        const bookingToCheck = await BookingModel.findById(savedBooking._id);
+        if (bookingToCheck && bookingToCheck.status === "waiting") {
+          // Update the status if it is still "waiting"
+          await BookingModel.findByIdAndUpdate(savedBooking._id, {
+            status: "available",
+          });
+          console.log(
+            `Booking ${savedBooking._id} status updated to "available".`
+          );
+        } else {
+          console.log(
+            `Booking ${savedBooking._id} status is ${bookingToCheck.status}`
+          );
+        }
+      } catch (error) {
+        console.error(
+          `Error during scheduled status check for booking ${savedBooking._id}:`,
+          error.message
+        );
+      }
+    }, 5 * 60 * 1000);
+    return res
+      .status(200)
+      .json({ success: true, message: result.message, data: savedBooking });
   } catch (err) {
     res.status(500).send({ message: err.message });
   }
 };
 
-// export const getTimeSlots = async (req, res) => {
-//   try {
-//     const today = moment();
-//     const threeMonthsLater = moment().add(3, "months");
+export const sendBookingConfirmationEmail = async (email, representative) => {
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_PASS,
+    },
+  });
 
-//     const bookings = await BookingModel.find();
+  const mailOptions = {
+    from: `Acecook Việt Nam <${process.env.GMAIL_USER}>`,
+    to: email,
+    subject: "Chúng tôi đã nhận được yêu cầu thăm nhà máy của bạn",
+    html: `
+      <p>Chào ${representative},</p>
+      <p>Cảm ơn bạn đã liên hệ với chúng tôi. Chúng tôi xin xác nhận đã nhận được yêu cầu của bạn về việc thăm nhà máy. Chúng tôi rất vui mừng được chào đón bạn đến tham quan và tìm hiểu thêm về quy trình sản xuất của chúng tôi.</p>
+      <p>Chúng tôi sẽ xem xét lịch trình và liên hệ với bạn trong thời gian sớm nhất để xác nhận thời gian và ngày cụ thể cho chuyến thăm.</p>
+      <p>Nếu bạn có bất kỳ câu hỏi nào thêm, xin vui lòng cho chúng tôi biết.</p>
+      <p>Trân trọng,</p>
+      <p>Acecook Việt Nam</p>
+    `,
+  };
 
-//     let timeSlots = [];
+  try {
+    await transporter.sendMail(mailOptions);
+  } catch (err) {
+    console.error("Error sending email:", err.message);
+    throw new Error("Failed to send email");
+  }
+};
 
-//     for (
-//       let d = today.clone();
-//       d.isBefore(threeMonthsLater) || d.isSame(threeMonthsLater);
-//       d.add(1, "days")
-//     ) {
-//       const availableSlots = ["morning", "afternoon"];
-
-//       const dateStr = d.format("YYYY-MM-DD");
-//       const dayBookings = bookings.filter((booking) =>
-//         moment(booking.visitDate).isSame(dateStr, "day")
-//       );
-
-//       dayBookings.forEach((booking) => {
-//         const index = availableSlots.indexOf(booking.timeSlot);
-//         if (index > -1) {
-//           availableSlots.splice(index, 1);
-//         }
-//       });
-
-//       if (availableSlots.length > 0) {
-//         timeSlots.push({
-//           date: d.format("YYYY-MM-DD"),
-//           slotsAvailable: availableSlots,
-//         });
-//       }
-//     }
-//     return res.status(200).send(timeSlots);
-//   } catch (err) {
-//     res.status(500).send({ message: err.message });
-//   }
-// };
 export const getTimeSlots = async (req, res) => {
   try {
+    const location = req.query.location;
     // Fetch all existing bookings from today onward
     const today = new Date();
     const bookings = await BookingModel.find({
+      location,
       visitDate: { $gte: today },
     });
 

@@ -6,6 +6,7 @@ import morgan from "morgan";
 import cookieParser from "cookie-parser";
 import booking from "./routers/booking.js";
 import smtp from "./routers/smtp.js";
+import otp from "./routers/otp.js";
 import dotenv from "dotenv";
 dotenv.config();
 export const app = express();
@@ -60,3 +61,4 @@ app.listen(process.env.PORT, () => {
 
 app.use("/booking", booking);
 app.use("/smtp", smtp);
+app.use("/otp", otp);
