@@ -5,7 +5,9 @@ import { createOTPAndSendSMS, generateOTP } from "./otp.js";
 
 export const getBookings = async (req, res) => {
   try {
-    const bookings = await BookingModel.find();
+    const bookings = await BookingModel.find().select(
+      "-representative -email -name -group -phone"
+    );
     res.status(200).send(bookings);
   } catch (err) {
     res.status(500).send({ message: err.message });
