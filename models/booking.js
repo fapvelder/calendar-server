@@ -18,10 +18,10 @@ const bookingSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["waiting", "confirmed", "cancelled"],
+      enum: ["available", "waiting", "confirmed", "cancelled"],
       default: "waiting",
     },
-    location: { type: String, required: true },
+    location: { type: String, required: true, enum: ["HCM", "VL", "DN"] },
     otp: { type: String },
     lastOTPSent: { type: Date },
     notes: String,

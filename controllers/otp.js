@@ -5,7 +5,6 @@ import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
 import { BookingModel } from "../models/booking.js";
 import { sendBookingConfirmationEmail } from "./booking.js";
-import mongoose from "mongoose";
 
 export const generateOTP = () => {
   return crypto.randomInt(100000, 999999).toString();
@@ -21,19 +20,16 @@ export const createOTPAndSendSMS = async (bookingID, phone, otp) => {
   try {
     // const otp = generateOTP();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
-    console.log(otp);
 
-    // const data = await sendSMS(phone, otp); // Wait for SMS to send successfully
-    // if (data.CodeResult !== "100") {
-    //   console.log("here");
-    //   return res
-    //     .status(400)
-    //     .json({ success: false, message: "Có lỗi xảy ra khi gửi OTP" });
-    // }
+    const data = await sendSMS(phone, otp); // Wait for SMS to send successfully
+    if (data.CodeResult !== "100") {
+      return res
+        .status(400)
+        .json({ success: false, message: "Có lỗi xảy ra khi gửi OTP" });
+    }
 
     const newOTP = new OTPModel({ bookingID, phone, otp, expiresAt });
     await newOTP.save();
-    console.log(bookingID);
     // For testing, send OTP in response (avoid this in production)
     return { message: "OTP sent successfully" };
   } catch (err) {
@@ -58,9 +54,8 @@ export const verifyOTP = async (req, res) => {
       expiresAt: -1,
     });
 
-    console.log(otpRecord);
     if (!otpRecord) {
-      return res.status(400).json({ valid: false, message: "OTP not found" });
+      return res.status(404).json({ valid: false, message: "OTP not found" });
     }
 
     if (otpRecord.expiresAt < Date.now()) {
@@ -73,14 +68,14 @@ export const verifyOTP = async (req, res) => {
     }
     const booking = await BookingModel.findOne({ _id: bookingID, phone, otp });
     if (!booking) {
-      return res.status(400).json({ message: "Booking not found" });
+      return res.status(404).json({ message: "Booking not found" });
     }
-    const { representative, email } = booking;
+    const { representative, email, location } = booking;
     booking.status = "confirmed";
     booking.otp = undefined;
     await booking.save();
     await OTPModel.deleteOne({ _id: otpRecord._id });
-    await sendBookingConfirmationEmail(email, representative);
+    await sendBookingConfirmationEmail(email, representative, location);
 
     return res
       .status(200)
@@ -163,12 +158,12 @@ export const resendOTP = async (req, res) => {
     booking.lastOTPSent = Date.now();
     booking.phone = phone;
     await booking.save();
-    // const data = await sendSMS(booking.phone, otp);
-    // if (data.CodeResult !== "100") {
-    //   return res
-    //     .status(400)
-    //     .json({ success: false, message: "Có lỗi xảy ra khi gửi OTP" });
-    // }
+    const data = await sendSMS(booking.phone, otp);
+    if (data.CodeResult !== "100") {
+      return res
+        .status(400)
+        .json({ success: false, message: "Có lỗi xảy ra khi gửi OTP" });
+    }
 
     const newOTP = new OTPModel({ bookingID, phone, otp, expiresAt });
     await newOTP.save();

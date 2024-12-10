@@ -44,20 +44,12 @@ export const createBooking = async (req, res) => {
       otp,
       lastOTPSent: Date.now(),
     });
-    console.log(new Date());
     const result = await createOTPAndSendSMS(newBooking._id, phone, otp);
     if (result.error) {
       return res.status(400).json({ success: false, message: result.error });
     }
     const savedBooking = await newBooking.save();
-    // setTimeout(async () => {
-    //   const currentBooking = await BookingModel.findById(savedBooking._id);
-    //   if (currentBooking && currentBooking.status === "waiting") {
-    //     await BookingModel.findByIdAndUpdate(savedBooking._id, {
-    //       status: "available",
-    //     });
-    //   }
-    // }, 5 * 60 * 1000);
+
     setTimeout(async () => {
       try {
         // Fetch the latest status of the booking
@@ -90,7 +82,18 @@ export const createBooking = async (req, res) => {
   }
 };
 
-export const sendBookingConfirmationEmail = async (email, representative) => {
+export const sendBookingConfirmationEmail = async (
+  email,
+  representative,
+  location
+) => {
+  const locationMap = {
+    HCM: "Hồ Chí Minh",
+    VL: "Vĩnh Long",
+    DN: "Đà Nẵng",
+  };
+  const bookingLocation = locationMap[location] || "Unknown Location";
+
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
@@ -102,10 +105,10 @@ export const sendBookingConfirmationEmail = async (email, representative) => {
   const mailOptions = {
     from: `Acecook Việt Nam <${process.env.GMAIL_USER}>`,
     to: email,
-    subject: "Chúng tôi đã nhận được yêu cầu thăm nhà máy của bạn",
+    subject: `Chúng tôi đã nhận được yêu cầu thăm nhà máy của bạn tại ${bookingLocation}`,
     html: `
-      <p>Chào ${representative},</p>
-      <p>Cảm ơn bạn đã liên hệ với chúng tôi. Chúng tôi xin xác nhận đã nhận được yêu cầu của bạn về việc thăm nhà máy. Chúng tôi rất vui mừng được chào đón bạn đến tham quan và tìm hiểu thêm về quy trình sản xuất của chúng tôi.</p>
+      <p>Xin chào ${representative},</p>
+      <p>Cảm ơn bạn đã liên hệ với chúng tôi. Chúng tôi xin xác nhận đã nhận được yêu cầu của bạn về việc thăm nhà máy tại ${bookingLocation}. Chúng tôi rất vui mừng được chào đón bạn đến tham quan và tìm hiểu thêm về quy trình sản xuất của chúng tôi.</p>
       <p>Chúng tôi sẽ xem xét lịch trình và liên hệ với bạn trong thời gian sớm nhất để xác nhận thời gian và ngày cụ thể cho chuyến thăm.</p>
       <p>Nếu bạn có bất kỳ câu hỏi nào thêm, xin vui lòng cho chúng tôi biết.</p>
       <p>Trân trọng,</p>
@@ -191,7 +194,6 @@ const generateTimeSlots = (startDate, months, existingSlots) => {
       // Determine status based on existing bookings
       let status = "available"; // Default status
       if (daySlots.length > 0) {
-        console.log(daySlots[0].status);
         status = daySlots[0].status;
       }
 
