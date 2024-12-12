@@ -5,9 +5,10 @@ import { createOTPAndSendSMS, generateOTP } from "./otp.js";
 
 export const getBookings = async (req, res) => {
   try {
-    const bookings = await BookingModel.find().select(
-      "-representative -email -name -group -phone"
-    );
+    const bookings = await BookingModel.find().sort({ createdAt: -1 });
+    // .select(
+    //   "-representative -email -name -group -phone"
+    // );
     res.status(200).send(bookings);
   } catch (err) {
     res.status(500).send({ message: err.message });
@@ -144,35 +145,51 @@ export const getTimeSlots = async (req, res) => {
   }
 };
 
+// export const updateBookings = async (req, res) => {
+//   const bookingId = req.params.id;
+//   const { data } = req.body;
+
+//   try {
+//     const booking = await BookingModel.findById(bookingId);
+//     if (!booking) {
+//       return res.status(404).json({ message: "Booking not found" });
+//     }
+
+//     await booking.save();
+//     res.status(200).json({ message: "Booking updated successfully", booking });
+//   } catch (error) {
+//     res.status(500).json({ message: "Error updating booking", error });
+//   }
+// };
+
 export const updateBookings = async (req, res) => {
   const bookingId = req.params.id;
-  const { visitDate, timeSlot, status } = req.body;
+  const { data } = req.body; // Assuming 'data' is the updated booking data sent in the request body
 
   try {
+    // Find the booking by ID
     const booking = await BookingModel.findById(bookingId);
     if (!booking) {
       return res.status(404).json({ message: "Booking not found" });
     }
 
-    if (visitDate) {
-      booking.visitDate = visitDate;
-    }
-    if (timeSlot) {
-      if (!["morning", "afternoon"].includes(timeSlot)) {
-        return res.status(400).json({ message: "Invalid time slot" });
+    // Update the booking fields with the new data
+    Object.keys(data).forEach((key) => {
+      if (data[key] !== undefined) {
+        booking[key] = data[key]; // Update each field if the data exists
       }
-      booking.timeSlot = timeSlot;
-    }
-    if (status) {
-      if (!["waiting", "confirmed", "cancelled"].includes(status)) {
-        return res.status(400).json({ message: "Invalid status" });
-      }
-      booking.status = status;
-    }
+    });
 
+    // Save the updated booking
     await booking.save();
-    res.status(200).json({ message: "Booking updated successfully", booking });
+
+    // Return the updated booking in the response
+    res.status(200).json({
+      message: "Booking updated successfully",
+      booking,
+    });
   } catch (error) {
+    // Handle any errors that occur during the update
     res.status(500).json({ message: "Error updating booking", error });
   }
 };
@@ -217,4 +234,16 @@ const addMonths = (date, months) => {
   const d = new Date(date);
   d.setMonth(d.getMonth() + months);
   return d;
+};
+
+export const deleteBooking = async (req, res) => {
+  try {
+    const deletedBooking = await BookingModel.findByIdAndDelete(req.params.id);
+    if (!deletedBooking) {
+      return res.status(404).send({ message: "Booking not found" });
+    }
+    res.status(200).send({ message: "Booking deleted successfully" });
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
 };

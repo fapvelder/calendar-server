@@ -4,6 +4,7 @@
     "axios": "^1.7.9",
     "body-parser": "^1.20.3",
     "bull": "^4.16.4",
+    "contentful-management": "^11.40.2",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",

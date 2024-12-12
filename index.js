@@ -7,7 +7,10 @@ import cookieParser from "cookie-parser";
 import booking from "./routers/booking.js";
 import smtp from "./routers/smtp.js";
 import otp from "./routers/otp.js";
+import page from "./routers/page.js";
+import survey from "./routers/survey.js";
 import dotenv from "dotenv";
+
 dotenv.config();
 export const app = express();
 const PORT = process.env.port || 5000;
@@ -62,3 +65,5 @@ app.listen(process.env.PORT, () => {
 app.use("/booking", booking);
 app.use("/smtp", smtp);
 app.use("/otp", otp);
+app.use("/page", page);
+app.use("/survey", survey);

@@ -1,4 +1,4 @@
-import { SurveyModel } from "../models/survey";
+import { SurveyModel } from "../models/survey.js";
 
 export const getAllSurveys = async (req, res) => {
   const surveys = await SurveyModel.find({});
