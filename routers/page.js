@@ -6,7 +6,7 @@ import {
 } from "../controllers/page.js";
 
 const router = express.Router();
-router.get("/page/:language", getPageByLanguage);
+router.get("/", getPageByLanguage);
 router.post("/", createPage);
 router.put("/:id", updatePage);
 

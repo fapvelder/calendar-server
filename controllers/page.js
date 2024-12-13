@@ -2,20 +2,14 @@ import { PageModel } from "../models/page.js";
 
 export const getPageByLanguage = async (req, res) => {
   try {
-    const { language } = req.params;
-
-    // Validate language
-    const validLanguages = ["vi", "jp", "en"];
-    if (!validLanguages.includes(language)) {
-      return res.status(400).json({ message: "Invalid language" });
-    }
+    const { language } = req.query;
 
     // Find the page(s) by language
     const page = await PageModel.findOne({ language });
 
     // If no page is found for the specified language, return all pages
     if (!page) {
-      const allPages = await PageModel.find();
+      const allPages = await PageModel.find({});
       if (allPages.length === 0) {
         return res.status(404).json({ message: "No pages found" });
       }
