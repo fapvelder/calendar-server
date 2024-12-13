@@ -82,6 +82,43 @@ export const createBooking = async (req, res) => {
     res.status(500).send({ message: err.message });
   }
 };
+export const createBookingForAdmin = async (req, res) => {
+  try {
+    const { visitDate, timeSlot, location, phone } = req.body.data;
+    const today = new Date(); // Get the current date
+    today.setHours(0, 0, 0, 0); // Normalize to the start of the day
+
+    const bookingDate = new Date(visitDate);
+    if (bookingDate < today) {
+      return res
+        .status(400)
+        .send({ message: "Cannot create a booking in the past." });
+    }
+    const existingBooking = await BookingModel.findOne({
+      visitDate: visitDate,
+      timeSlot: timeSlot,
+      location: location,
+      status: { $nin: ["cancelled", "available"] },
+    });
+
+    if (existingBooking) {
+      return res
+        .status(400)
+        .send({ message: "This time slot is already booked." });
+    }
+    const newBooking = new BookingModel({
+      ...req.body.data,
+    });
+
+    const savedBooking = await newBooking.save();
+
+    return res
+      .status(200)
+      .json({ success: true, message: result.message, data: savedBooking });
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
 
 export const sendBookingConfirmationEmail = async (
   email,

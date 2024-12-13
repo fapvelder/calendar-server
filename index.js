@@ -9,6 +9,7 @@ import smtp from "./routers/smtp.js";
 import otp from "./routers/otp.js";
 import page from "./routers/page.js";
 import survey from "./routers/survey.js";
+import user from "./routers/user.js";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -67,3 +68,4 @@ app.use("/smtp", smtp);
 app.use("/otp", otp);
 app.use("/page", page);
 app.use("/survey", survey);
+app.use("/user", user);

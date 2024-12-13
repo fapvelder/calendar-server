@@ -4,10 +4,11 @@ import {
   getPageByLanguage,
   updatePage,
 } from "../controllers/page.js";
+import { isAdmin } from "../utils.js";
 
 const router = express.Router();
-router.get("/", getPageByLanguage);
-router.post("/", createPage);
-router.put("/:id", updatePage);
+router.get("/", isAdmin, getPageByLanguage);
+router.post("/", isAdmin, createPage);
+router.put("/:id", isAdmin, updatePage);
 
 export default router;
